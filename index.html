@@ -1,0 +1,1866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sprint Capacity Calculator</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f14;
+    --surface: #13161e;
+    --surface2: #1a1e28;
+    --border: #252a38;
+    --accent: #4f9eff;
+    --accent2: #00e5a0;
+    --accent3: #ff6b6b;
+    --accent4: #f5a623;
+    --text: #e8eaf0;
+    --muted: #6b7394;
+    --confirmed: #00e5a0;
+    --tentative: #f5a623;
+    --planned-later: #4f9eff;
+    --danger: #ff6b6b;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 13px;
+  }
+
+  /* ─── HEADER ─── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 32px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 18px;
+    letter-spacing: -0.5px;
+    color: var(--text);
+  }
+
+  .logo span { color: var(--accent); }
+
+  .sprint-badge {
+    font-size: 11px;
+    background: var(--accent);
+    color: #000;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-weight: 500;
+    letter-spacing: 1px;
+  }
+
+  .header-meta {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .header-reset {
+    padding: 7px 12px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .status-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .status-dot { 
+    width: 7px; 
+    height: 7px; 
+    border-radius: 50%; 
+    background: var(--accent2); 
+  }
+
+  /* ─── LAYOUT ─── */
+  .shell {
+    display: flex;
+    height: calc(100vh - 57px);
+  }
+
+  /* ─── SIDEBAR ─── */
+  nav {
+    width: 200px;
+    min-width: 200px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 20px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .nav-section {
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+    padding: 12px 20px 6px;
+    text-transform: uppercase;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 20px;
+    cursor: pointer;
+    color: var(--muted);
+    transition: all 0.15s;
+    border-left: 3px solid transparent;
+    font-size: 12px;
+  }
+
+  .nav-item:hover { 
+    color: var(--text); 
+    background: var(--surface2); 
+  }
+
+  .nav-item.active {
+    color: var(--accent);
+    border-left-color: var(--accent);
+    background: rgba(79,158,255,0.07);
+  }
+
+  .nav-icon { 
+    font-size: 14px; 
+    width: 16px; 
+    text-align: center; 
+  }
+
+  /* ─── MAIN ─── */
+  main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 28px 32px;
+  }
+
+  .page { 
+    display: none; 
+  }
+
+  .page.active { 
+    display: block; 
+  }
+
+  .page-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .page-sub { 
+    color: var(--muted); 
+    margin-bottom: 28px; 
+  }
+
+  /* ─── STAT CARDS ─── */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--accent-color, var(--accent));
+  }
+
+  .stat-label { 
+    font-size: 10px; 
+    letter-spacing: 1px; 
+    color: var(--muted); 
+    text-transform: uppercase; 
+    margin-bottom: 8px; 
+  }
+
+  .stat-value { 
+    font-family: 'Syne', sans-serif; 
+    font-size: 26px; 
+    font-weight: 700; 
+  }
+
+  .stat-sub { 
+    font-size: 11px; 
+    color: var(--muted); 
+    margin-top: 4px; 
+  }
+
+  /* ─── SECTION ─── */
+  .section { 
+    margin-bottom: 28px; 
+  }
+
+  .section-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ─── TABLE ─── */
+  .table-wrap { 
+    overflow-x: auto; 
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+
+  th {
+    background: var(--surface2);
+    padding: 9px 12px;
+    text-align: left;
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+
+  tr:hover td { 
+    background: var(--surface2); 
+  }
+
+  tr:last-child td { 
+    border-bottom: none; 
+  }
+
+  tfoot { 
+    background: var(--surface2); 
+    font-weight: 600; 
+  }
+
+  tfoot td { 
+    font-weight: 600; 
+  }
+
+  .table-container {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow-x: auto;
+    overflow-y: visible;
+  }
+
+  /* ─── FORM ELEMENTS ─── */
+  .form-group {
+    margin-bottom: 16px;
+  }
+
+  .form-label {
+    display: block;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  input, select, textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 8px 12px;
+    font-family: inherit;
+    font-size: 12px;
+  }
+
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(79, 158, 255, 0.1);
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  /* ─── BUTTONS ─── */
+  button {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    padding: 9px 16px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    transition: all 0.15s;
+  }
+
+  button:hover {
+    background: #6bb4ff;
+  }
+
+  button.secondary {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  button.secondary:hover {
+    background: var(--border);
+  }
+
+  /* ─── BADGES ─── */
+  .badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+  }
+
+  .badge-green { 
+    background: rgba(0, 229, 160, 0.12); 
+    color: var(--accent2); 
+  }
+
+  .badge-orange { 
+    background: rgba(245, 166, 35, 0.12); 
+    color: var(--accent4); 
+  }
+
+  .badge-red { 
+    background: rgba(255, 107, 107, 0.12); 
+    color: var(--accent3); 
+  }
+
+  .badge-blue { 
+    background: rgba(79, 158, 255, 0.12); 
+    color: var(--accent); 
+  }
+
+  /* ─── CAPACITY BAR ─── */
+  .capacity-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .bar {
+    flex: 1;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .bar-fill {
+    height: 100%;
+    background: var(--accent2);
+    transition: width 0.3s, background 0.3s;
+  }
+
+  .bar-fill.warning {
+    background: var(--accent4);
+  }
+
+  .bar-fill.danger {
+    background: var(--accent3);
+  }
+
+  .bar-val {
+    font-size: 11px;
+    color: var(--muted);
+    width: 45px;
+    text-align: right;
+  }
+
+  /* ─── UTILS ─── */
+  .mt-20 { margin-top: 20px; }
+  .mb-20 { margin-bottom: 20px; }
+  .text-center { text-align: center; }
+  .text-muted { color: var(--muted); }
+
+  .modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+  }
+
+  .modal.show { display: flex; }
+
+  .modal-content {
+    background-color: var(--surface);
+    margin: auto;
+    padding: 24px;
+    width: 90%;
+    max-width: 500px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+
+  .modal-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .close-btn {
+    background: none;
+    border: none;
+    color: var(--text);
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 24px;
+    background: var(--accent2);
+    color: #000;
+    padding: 12px 20px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 1001;
+  }
+
+  .toast.show {
+    opacity: 1;
+  }
+
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+
+  .info-box {
+    background: var(--surface2);
+    border-left: 3px solid var(--accent);
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin-bottom: 16px;
+  }
+
+  .info-box.warning {
+    border-left-color: var(--accent4);
+  }
+
+  .info-box.danger {
+    border-left-color: var(--accent3);
+  }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+
+  .day-status-select {
+    width: 100%;
+    min-width: 92px;
+    padding: 6px 8px;
+    font-size: 11px;
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .day-status-select.status-working { background: rgba(0, 229, 160, 0.12); }
+  .day-status-select.status-half { background: rgba(245, 166, 35, 0.14); }
+  .day-status-select.status-leave { background: rgba(255, 107, 107, 0.14); }
+  .day-status-select.status-holiday { background: rgba(79, 158, 255, 0.14); }
+
+  td.status-working { background: rgba(0, 229, 160, 0.08) !important; }
+  td.status-half { background: rgba(245, 166, 35, 0.10) !important; }
+  td.status-leave { background: rgba(255, 107, 107, 0.10) !important; }
+  td.status-holiday { background: rgba(79, 158, 255, 0.10) !important; }
+
+  .planner-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+  }
+
+  .planner-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .planner-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface2);
+  }
+
+  .schedule-summary {
+    margin-top: 18px;
+  }
+
+  .schedule-summary-card,
+  .report-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+
+  .schedule-summary-grid,
+  .report-hero {
+    display: grid;
+    gap: 12px;
+  }
+
+  .schedule-summary-grid {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+
+  .report-hero {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    margin-bottom: 18px;
+  }
+
+  .report-meta-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    margin-bottom: 18px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .report-meta-bar strong {
+    color: var(--text);
+  }
+
+  .summary-chip {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface2);
+    font-size: 11px;
+  }
+
+  .summary-chip strong {
+    display: inline-flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .report-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 16px;
+  }
+
+  @media print {
+    header, nav, .no-print, #toast, .modal { display: none !important; }
+    body { background: #fff !important; color: #000 !important; }
+    main { padding: 0 !important; overflow: visible !important; }
+    .page { display: none !important; }
+    #report { display: block !important; }
+    #report .report-card,
+    #report .table-container { background: #fff !important; }
+    #report * { color: #000 !important; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">QORIX SPRINT CAPACITY CALCULATOR <span>⚡</span></div>
+  <span class="sprint-badge" id="sprint-badge">S-01</span>
+  <div class="header-meta">
+    <div class="status-pill">
+    <div class="header-actions">
+      <button class="secondary header-reset" onclick="resetConfiguration()">Reset</button>
+    </div>
+      <div class="status-dot"></div>
+      <span id="clock">00:00</span>
+    </div>
+  </div>
+</header>
+
+<div class="shell">
+  <nav>
+    <div class="nav-section">Menu</div>
+    <div class="nav-item active" onclick="navigate('dashboard')">
+      <span class="nav-icon">📊</span>
+      Dashboard
+    </div>
+    <div class="nav-item" onclick="navigate('config')">
+      <span class="nav-icon">⚙️</span>
+      Configuration
+    </div>
+    <div class="nav-item" onclick="navigate('capacity')">
+      <span class="nav-icon">👥</span>
+      Team Capacity
+    </div>
+    <div class="nav-section">Tools</div>
+    <div class="nav-item" onclick="exportData()">
+      <span class="nav-icon">💾</span>
+      Export CSV
+    </div>
+    <div class="nav-item" onclick="navigate('report')">
+      <span class="nav-icon">🖨️</span>
+      Export PDF
+    </div>
+    <div class="nav-item" onclick="importData()">
+      <span class="nav-icon">📤</span>
+      Import CSV
+    </div>
+  </nav>
+
+  <main>
+    <!-- DASHBOARD PAGE -->
+    <div class="page active" id="dashboard">
+      <div class="page-title">Sprint Capacity Calculator</div>
+      <div class="page-sub">Real-time capacity and utilization overview</div>
+
+      <div class="section">
+        <div class="section-title">Sprint Details Overview</div>
+        <div class="stat-grid" id="dashboard-meta">
+          <div class="stat-card" style="--accent-color: var(--accent2)">
+            <div class="stat-label">Program / Project</div>
+            <div class="stat-value" id="dash-project">—</div>
+            <div class="stat-sub">Required field</div>
+          </div>
+          <div class="stat-card" style="--accent-color: var(--accent)">
+            <div class="stat-label">Team / Module</div>
+            <div class="stat-value" id="dash-module">—</div>
+            <div class="stat-sub">Required field</div>
+          </div>
+          <div class="stat-card" style="--accent-color: var(--accent4)">
+            <div class="stat-label">Sprint Number</div>
+            <div class="stat-value" id="dash-sprint-num">—</div>
+            <div class="stat-sub">Required field</div>
+          </div>
+          <div class="stat-card" style="--accent-color: var(--accent3)">
+            <div class="stat-label">Sprint Name</div>
+            <div class="stat-value" id="dash-sprint-name">—</div>
+            <div class="stat-sub">Required field</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stat-grid" id="dashboard-stats">
+        <div class="stat-card" style="--accent-color: var(--accent2)">
+          <div class="stat-label">Total Team Members</div>
+          <div class="stat-value" id="stat-members">0</div>
+          <div class="stat-sub">Active resources</div>
+        </div>
+        <div class="stat-card" style="--accent-color: var(--accent)">
+          <div class="stat-label">Total Capacity (Days)</div>
+          <div class="stat-value" id="stat-total-days">0.0</div>
+          <div class="stat-sub">Available work days</div>
+        </div>
+        <div class="stat-card" style="--accent-color: var(--accent)">
+          <div class="stat-label">Total Capacity (Hours)</div>
+          <div class="stat-value" id="stat-total-hours">0.0</div>
+          <div class="stat-sub">Hours available</div>
+        </div>
+        <div class="stat-card" style="--accent-color: var(--accent4)">
+          <div class="stat-label">Avg Daily Capacity</div>
+          <div class="stat-value" id="stat-avg-daily">0.0</div>
+          <div class="stat-sub">Hours per day</div>
+        </div>
+        <div class="stat-card" style="--accent-color: var(--accent2)">
+          <div class="stat-label">Productivity Factor</div>
+          <div class="stat-value" id="stat-productivity">0.0%</div>
+          <div class="stat-sub">Productive hours / total available hours</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Team Utilization</div>
+        <div class="table-container">
+          <table id="utilization-table">
+            <thead>
+              <tr>
+                <th>Team Member</th>
+                <th>Role</th>
+                <th>Working Days</th>
+                <th>Capacity (Days)</th>
+                <th>Capacity (Hours)</th>
+                <th>Utilization</th>
+              </tr>
+            </thead>
+            <tbody id="utilization-tbody">
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONFIGURATION PAGE -->
+    <div class="page" id="config">
+      <div class="page-title">Sprint Configuration</div>
+      <div class="page-sub">Set up sprint details and team information</div>
+
+      <div class="info-box">
+        💡 Configure your sprint parameters and team details here. Changes are saved automatically.
+      </div>
+
+      <div class="section">
+        <div class="section-title">Sprint Details</div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Program / Project Name</label>
+            <input type="text" id="config-project-name" placeholder="Enter program or project name" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Team / Module Name</label>
+            <input type="text" id="config-module-name" placeholder="Enter team or module name" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Sprint Number</label>
+            <input type="text" id="config-sprint-num" placeholder="e.g., S-01" value="S-01" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Sprint Name</label>
+            <input type="text" id="config-sprint-name" placeholder="e.g., Sprint 1" value="Sprint 1" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Start Date</label>
+            <input type="date" id="config-start-date">
+          </div>
+          <div class="form-group">
+            <label class="form-label">End Date</label>
+            <input type="date" id="config-end-date">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Working Days in Sprint</label>
+            <input type="number" id="config-working-days" min="1" max="30" value="10" step="0.5">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Hours per Day</label>
+            <input type="number" id="config-hours-per-day" min="1" max="12" value="8.5" step="0.5">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Scrum Master</label>
+            <input type="text" id="config-sm" placeholder="Name">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Product Owner</label>
+            <input type="text" id="config-po" placeholder="Name">
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:20px;">
+        <button onclick="saveConfig()">Save Configuration</button>
+        <button class="secondary" onclick="resetConfiguration()">Reset</button>
+      </div>
+    </div>
+
+    <!-- CAPACITY PAGE -->
+    <div class="page" id="capacity">
+      <div class="page-title">Team Capacity Analysis</div>
+      <div class="page-sub">Detailed capacity breakdown and availability metrics</div>
+
+      <div class="section">
+        <div class="section-title">Team Setup</div>
+        <div class="table-container mt-20" id="team-planner-container"></div>
+        <button onclick="addTeamMember()" class="mt-20">+ Add Team Member</button>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Capacity Details by Team Member</div>
+        <div class="table-container">
+          <table id="capacity-table">
+            <thead>
+              <tr>
+                <th>Team Member</th>
+                <th>Role</th>
+                <th>Allocation %</th>
+                <th>Working Days</th>
+                <th>Saturdays</th>
+                <th>Holidays</th>
+                <th>Leaves</th>
+                <th>Available Days</th>
+                <th>Available Hours</th>
+                <th>Hours/Day</th>
+              </tr>
+            </thead>
+            <tbody id="capacity-tbody">
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="7"><strong>TOTAL</strong></td>
+                <td id="total-available-days"><strong>0.0</strong></td>
+                <td id="total-available-hours"><strong>0.0</strong></td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Capacity Visualization</div>
+        <div id="capacity-viz"></div>
+      </div>
+    </div>
+
+    <!-- REPORT PAGE -->
+    <div class="page" id="report">
+      <div class="page-title">Export Report</div>
+      <div class="page-sub">Print a clean PDF view of dashboard data, capacity details, and capacity visualization</div>
+
+      <div class="report-meta-bar" id="report-meta-bar"></div>
+
+      <div class="section">
+          <div class="section-title">Dashboard Data</div>
+          <div class="stat-grid" id="report-dashboard-stats"></div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Capacity Details by Team Member</div>
+          <div class="table-container" id="report-capacity-table"></div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Capacity Visualization</div>
+          <div id="report-capacity-viz"></div>
+      </div>
+
+      <div class="report-actions no-print">
+        <button onclick="printReport()">🖨️ Print / Save as PDF</button>
+        <button class="secondary" onclick="exportData()">💾 Export CSV</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Add Team Member Modal -->
+<div class="modal" id="member-modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div class="modal-title" id="member-modal-title">Add Team Member</div>
+      <button class="close-btn" onclick="closeMemberModal()">×</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Name</label>
+      <input type="text" id="member-name" placeholder="Full name">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Role</label>
+      <select id="member-role">
+        <option value="Developer">Developer</option>
+        <option value="Tech Lead">Tech Lead</option>
+        <option value="Architect">Architect</option>
+        <option value="QA">QA</option>
+        <option value="DevOps">DevOps</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Allocation %</label>
+      <input type="number" id="member-allocation" min="0" max="100" value="100" step="5">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Productivity Factor %</label>
+      <input type="number" id="member-productivity" min="0" max="95" value="95" step="5">
+    </div>
+    <div style="display: flex; gap: 10px; margin-top: 20px;">
+      <button onclick="saveTeamMember()" id="member-save-btn">Save</button>
+      <button class="secondary" onclick="closeMemberModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Import Modal -->
+<div class="modal" id="import-modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div class="modal-title">Import CSV Data</div>
+      <button class="close-btn" onclick="closeImportModal()">×</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Select CSV File</label>
+      <input type="file" id="import-file" accept=".csv">
+    </div>
+    <div style="display: flex; gap: 10px; margin-top: 20px;">
+      <button onclick="processImport()">Import</button>
+      <button class="secondary" onclick="closeImportModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<input type="file" id="csv-import" style="display:none;" accept=".csv">
+
+<script>
+// ════════════════════════════════════════════
+// STATE MANAGEMENT
+// ════════════════════════════════════════════
+const state = {
+  config: {
+    projectName: '',
+    moduleName: '',
+    sprintNum: 'S-01',
+    sprintName: 'Sprint 1',
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    workingDays: 10,
+    hoursPerDay: 8.5,
+    sm: '',
+    po: ''
+  },
+  members: []
+};
+
+let editingMemberIndex = null;
+
+// ════════════════════════════════════════════
+// INITIALIZATION
+// ════════════════════════════════════════════
+function init() {
+  loadState();
+  renderConfig();
+  renderDashboard();
+  updateClock();
+  setInterval(updateClock, 1000);
+  
+  // Set default dates
+  const today = new Date().toISOString().split('T')[0];
+  const twoWeeksLater = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  document.getElementById('config-start-date').value = today;
+  document.getElementById('config-end-date').value = twoWeeksLater;
+}
+
+// ════════════════════════════════════════════
+// LOCAL STORAGE
+// ════════════════════════════════════════════
+function saveState() {
+  localStorage.setItem('sprintCapacityState', JSON.stringify(state));
+}
+
+function normalizeMember(member) {
+  const productivityFactor = Number.isFinite(parseFloat(member.productivityFactor)) ? parseFloat(member.productivityFactor) : 95;
+  return {
+    name: member.name || '',
+    role: member.role || 'Developer',
+    allocation: Number.isFinite(parseFloat(member.allocation)) ? parseFloat(member.allocation) : 100,
+    productivityFactor: Math.min(Math.max(productivityFactor, 0), 95),
+    holidays: Number.isFinite(parseFloat(member.holidays)) ? parseFloat(member.holidays) : 0,
+    leaves: Number.isFinite(parseFloat(member.leaves)) ? parseFloat(member.leaves) : 0,
+    saturdays: Number.isFinite(parseFloat(member.saturdays)) ? parseFloat(member.saturdays) : 0,
+    training: Number.isFinite(parseFloat(member.training)) ? parseFloat(member.training) : 0,
+    dayPlan: member.dayPlan || {}
+  };
+}
+
+function loadState() {
+  const saved = localStorage.getItem('sprintCapacityState');
+  if (saved) {
+    const loaded = JSON.parse(saved);
+    state.config = loaded.config || state.config;
+    state.members = (loaded.members || []).map(normalizeMember);
+  }
+}
+
+// ════════════════════════════════════════════
+// NAVIGATION
+// ════════════════════════════════════════════
+function navigate(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(page).classList.add('active');
+  
+  document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+  event.target.closest('.nav-item')?.classList.add('active');
+
+  if (page === 'dashboard') renderDashboard();
+  else if (page === 'capacity') renderCapacity();
+  else if (page === 'report') renderReport();
+  else if (page === 'config') renderConfig();
+}
+
+// ════════════════════════════════════════════
+// CONFIG PAGE
+// ════════════════════════════════════════════
+function renderConfig() {
+  document.getElementById('config-project-name').value = state.config.projectName || '';
+  document.getElementById('config-module-name').value = state.config.moduleName || '';
+  document.getElementById('config-sprint-num').value = state.config.sprintNum;
+  document.getElementById('config-sprint-name').value = state.config.sprintName;
+  document.getElementById('config-start-date').value = state.config.startDate;
+  document.getElementById('config-end-date').value = state.config.endDate;
+  document.getElementById('config-working-days').value = state.config.workingDays;
+  document.getElementById('config-hours-per-day').value = state.config.hoursPerDay;
+  document.getElementById('config-sm').value = state.config.sm;
+  document.getElementById('config-po').value = state.config.po;
+
+  document.getElementById('sprint-badge').textContent = state.config.sprintNum;
+
+  document.getElementById('dash-project').textContent = state.config.projectName || '—';
+  document.getElementById('dash-module').textContent = state.config.moduleName || '—';
+  document.getElementById('dash-sprint-num').textContent = state.config.sprintNum || '—';
+  document.getElementById('dash-sprint-name').textContent = state.config.sprintName || '—';
+}
+
+function saveConfig() {
+  state.config.projectName = document.getElementById('config-project-name').value;
+  state.config.moduleName = document.getElementById('config-module-name').value;
+  state.config.sprintNum = document.getElementById('config-sprint-num').value;
+  state.config.sprintName = document.getElementById('config-sprint-name').value;
+  state.config.startDate = document.getElementById('config-start-date').value;
+  state.config.endDate = document.getElementById('config-end-date').value;
+  state.config.workingDays = parseFloat(document.getElementById('config-working-days').value);
+  state.config.hoursPerDay = parseFloat(document.getElementById('config-hours-per-day').value);
+  state.config.sm = document.getElementById('config-sm').value;
+  state.config.po = document.getElementById('config-po').value;
+
+  if (!state.config.projectName || !state.config.moduleName || !state.config.sprintNum || !state.config.sprintName) {
+    toast('Program, module, sprint number, and sprint name are required');
+    return;
+  }
+
+  saveState();
+  document.getElementById('sprint-badge').textContent = state.config.sprintNum;
+  
+  toast('Configuration saved ✓');
+  renderConfig();
+  renderDashboard();
+  renderCapacity();
+}
+
+function hasRequiredConfig() {
+  return Boolean(
+    (state.config.projectName || '').trim() &&
+    (state.config.moduleName || '').trim() &&
+    (state.config.sprintNum || '').trim() &&
+    (state.config.sprintName || '').trim()
+  );
+}
+
+function resetConfiguration() {
+  const confirmed = confirm('Reset configuration and clear all saved team data?');
+  if (!confirmed) return;
+
+  state.config = {
+    projectName: '',
+    moduleName: '',
+    sprintNum: 'S-01',
+    sprintName: 'Sprint 1',
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    workingDays: 10,
+    hoursPerDay: 8.5,
+    sm: '',
+    po: ''
+  };
+  state.members = [];
+  localStorage.removeItem('sprintCapacityState');
+  document.getElementById('sprint-badge').textContent = state.config.sprintNum;
+  renderConfig();
+  renderDashboard();
+  renderCapacity();
+  toast('Configuration reset ✓');
+}
+
+function addTeamMember() {
+  editingMemberIndex = null;
+  document.getElementById('member-modal-title').textContent = 'Add Team Member';
+  document.getElementById('member-save-btn').textContent = 'Save';
+  document.getElementById('member-productivity').value = 95;
+  document.getElementById('member-modal').classList.add('show');
+}
+
+function editMember(idx) {
+  const member = state.members[idx];
+  if (!member) return;
+  editingMemberIndex = idx;
+  document.getElementById('member-modal-title').textContent = 'Edit Team Member';
+  document.getElementById('member-save-btn').textContent = 'Update';
+  document.getElementById('member-name').value = member.name || '';
+  document.getElementById('member-role').value = member.role || 'Developer';
+  document.getElementById('member-allocation').value = member.allocation ?? 100;
+  document.getElementById('member-productivity').value = Math.min(member.productivityFactor ?? 95, 95);
+  document.getElementById('member-modal').classList.add('show');
+}
+
+function closeMemberModal() {
+  document.getElementById('member-modal').classList.remove('show');
+  document.getElementById('member-name').value = '';
+  document.getElementById('member-role').value = 'Developer';
+  document.getElementById('member-allocation').value = 100;
+  document.getElementById('member-productivity').value = 95;
+  editingMemberIndex = null;
+  document.getElementById('member-modal-title').textContent = 'Add Team Member';
+  document.getElementById('member-save-btn').textContent = 'Save';
+}
+
+function saveTeamMember() {
+  const name = document.getElementById('member-name').value.trim();
+  if (!name) {
+    toast('Please enter member name');
+    return;
+  }
+
+  const isEditing = editingMemberIndex !== null;
+  const existingMember = isEditing ? state.members[editingMemberIndex] : null;
+
+  const member = {
+    name,
+    role: document.getElementById('member-role').value,
+    allocation: parseFloat(document.getElementById('member-allocation').value),
+    productivityFactor: Math.min(parseFloat(document.getElementById('member-productivity').value), 95),
+    holidays: existingMember?.holidays ?? 0,
+    leaves: existingMember?.leaves ?? 0,
+    saturdays: existingMember?.saturdays ?? 0,
+    training: existingMember?.training ?? 0,
+    dayPlan: existingMember?.dayPlan || {}
+  };
+
+  if (editingMemberIndex === null) {
+    state.members.push(member);
+  } else {
+    state.members[editingMemberIndex] = member;
+  }
+  saveState();
+  closeMemberModal();
+  renderConfig();
+  renderDashboard();
+  renderCapacity();
+  toast(isEditing ? 'Team member updated ✓' : 'Team member added ✓');
+}
+
+function removeMember(idx) {
+  state.members.splice(idx, 1);
+  saveState();
+  renderConfig();
+  renderDashboard();
+  renderCapacity();
+  toast('Team member removed');
+}
+
+function renderTeamPlanner() {
+  const container = document.getElementById('team-planner-container');
+  const dates = getSprintDates();
+
+  if (state.members.length === 0) {
+    container.innerHTML = '<div style="padding:20px; color: var(--muted);">Add team members to see the date-wise planner here.</div>';
+    return;
+  }
+
+  if (dates.length === 0) {
+    container.innerHTML = '<div style="padding:20px; color: var(--muted);">Set sprint start and end dates to show the two-week availability planner.</div>';
+    return;
+  }
+
+  container.innerHTML = `
+    <div style="padding:16px 18px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; gap:12px; align-items:center;">
+      <div>
+        <div class="section-title" style="margin:0;">Date-wise Team Planner</div>
+        <div class="text-muted" style="font-size:11px; margin-top:4px;">Select working day, half day leave, full day leave, or public holiday for each team member.</div>
+      </div>
+      <div class="text-muted" style="font-size:11px; white-space:nowrap;">${dates.length} visible days</div>
+    </div>
+    <div class="table-wrap" style="max-height: 420px; overflow:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th style="position: sticky; left: 0; z-index: 2; background: var(--surface2);">Team Member</th>
+            ${dates.map(date => `<th>${formatScheduleDate(date)}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${state.members.map(member => `
+            <tr>
+              <td style="position: sticky; left: 0; z-index: 1; background: var(--surface); min-width: 180px;">
+                <div style="display:flex; justify-content:space-between; gap:10px; align-items:flex-start;">
+                  <div>
+                    <strong>${member.name}</strong><br>
+                    <span class="text-muted" style="font-size: 11px;">${member.role}</span>
+                    <div class="text-muted" style="font-size: 10px; margin-top: 4px;">PF: ${(member.productivityFactor ?? 100).toFixed(0)}% | Allocation: ${(member.allocation ?? 100).toFixed(0)}%</div>
+                  </div>
+                  <button class="secondary" onclick="editMember(${state.members.indexOf(member)})" style="padding: 4px 8px; font-size: 11px; white-space: nowrap;">Edit</button>
+                </div>
+              </td>
+              ${dates.map(date => {
+                const dateKey = date.toISOString().split('T')[0];
+                const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                const status = getDailyStatus(member, dateKey) || (isWeekend ? '' : 'W');
+                const background = status === 'W'
+                  ? 'rgba(0, 229, 160, 0.08)'
+                  : status === 'L0.5'
+                    ? 'rgba(245, 166, 35, 0.12)'
+                    : status === 'L0'
+                      ? 'rgba(255, 107, 107, 0.12)'
+                      : status === 'H'
+                        ? 'rgba(79, 158, 255, 0.12)'
+                        : isWeekend ? 'rgba(245, 166, 35, 0.05)' : 'transparent';
+                const optionClass = status === 'W' ? 'status-working' : status === 'L0.5' ? 'status-half' : status === 'L0' ? 'status-leave' : status === 'H' ? 'status-holiday' : '';
+                return `
+                  <td class="${optionClass}" style="background:${background}; text-align:center; min-width: 118px;">
+                    <select class="day-status-select ${optionClass}" onchange='setDailyStatus(${JSON.stringify(member.name)}, ${JSON.stringify(dateKey)}, this.value, this)'>
+                      <option value="" ${status === '' ? 'selected' : ''}>-</option>
+                      <option value="W" ${status === 'W' ? 'selected' : ''}>Full Day</option>
+                      <option value="L0.5" ${status === 'L0.5' ? 'selected' : ''}>Half Leave</option>
+                      <option value="L0" ${status === 'L0' ? 'selected' : ''}>Leave</option>
+                      <option value="H" ${status === 'H' ? 'selected' : ''}>Holiday</option>
+                    </select>
+                  </td>`;
+              }).join('')}
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>`;
+
+  container.innerHTML += `
+    <div class="planner-actions" style="padding: 14px 18px; border-top: 1px solid var(--border);">
+      <div class="planner-legend">
+        <span><i class="status-working" style="width:10px;height:10px;display:inline-block;border-radius:50%;"></i>Working day</span>
+        <span><i class="status-half" style="width:10px;height:10px;display:inline-block;border-radius:50%;"></i>Half day leave</span>
+        <span><i class="status-leave" style="width:10px;height:10px;display:inline-block;border-radius:50%;"></i>Leave</span>
+        <span><i class="status-holiday" style="width:10px;height:10px;display:inline-block;border-radius:50%;"></i>Holiday</span>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button onclick="savePlannerState()">Save Team Planning</button>
+        <button class="secondary" onclick="renderTeamPlanner()">Refresh View</button>
+      </div>
+    </div>`;
+}
+
+function savePlannerState() {
+  saveState();
+  renderConfig();
+  toast('Team planning saved ✓');
+}
+
+function getSprintDates() {
+  if (!state.config.startDate || !state.config.endDate) return [];
+  const startDate = new Date(state.config.startDate);
+  const endDate = new Date(state.config.endDate);
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || startDate > endDate) return [];
+
+  const dates = [];
+  for (let current = new Date(startDate); current <= endDate; current.setDate(current.getDate() + 1)) {
+    dates.push(new Date(current));
+  }
+  return dates;
+}
+
+function formatScheduleDate(date) {
+  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+function getDailyStatus(member, dateKey) {
+  return member.dayPlan ? member.dayPlan[dateKey] || '' : '';
+}
+
+function getPlannerStatusClass(value) {
+  if (value === 'W') return 'status-working';
+  if (value === 'L0.5') return 'status-half';
+  if (value === 'L0') return 'status-leave';
+  if (value === 'H') return 'status-holiday';
+  return '';
+}
+
+function setDailyStatus(memberName, dateKey, value, selectEl) {
+  const member = state.members.find(item => item.name === memberName);
+  if (!member) return;
+
+  if (!member.dayPlan) member.dayPlan = {};
+  if (!value) delete member.dayPlan[dateKey];
+  else member.dayPlan[dateKey] = value;
+
+  if (selectEl) {
+    const statusClass = getPlannerStatusClass(value);
+    const cell = selectEl.closest('td');
+    selectEl.className = `day-status-select ${statusClass}`.trim();
+    if (cell) {
+      cell.className = statusClass;
+    }
+  }
+
+  saveState();
+  renderDashboard();
+  renderCapacity();
+}
+
+function getMemberDayTotals(member) {
+  const dates = getSprintDates();
+  const productivityFactor = Number.isFinite(parseFloat(member.productivityFactor)) ? parseFloat(member.productivityFactor) : 100;
+  if (dates.length === 0) {
+    const workingDays = state.config.workingDays || 0;
+    const grossAvailableDays = workingDays - (member.holidays || 0) - (member.leaves || 0) - (member.training || 0);
+    const availableDays = grossAvailableDays * (productivityFactor / 100);
+    return {
+      workingDays,
+      holidays: member.holidays || 0,
+      leaves: member.leaves || 0,
+      halfLeaves: 0,
+      productivityFactor,
+      grossAvailableDays,
+      availableDays
+    };
+  }
+
+  let workingDays = 0;
+  let holidays = 0;
+  let leaves = 0;
+  let halfLeaves = 0;
+
+  dates.forEach(date => {
+    const dateKey = date.toISOString().split('T')[0];
+    const status = getDailyStatus(member, dateKey);
+    const dayOfWeek = date.getDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+    if (status === 'H') holidays += 1;
+    else if (status === 'L0') leaves += 1;
+    else if (status === 'L0.5') halfLeaves += 0.5;
+    else if (status === 'W') workingDays += 1;
+    else if (!isWeekend) workingDays += 1;
+  });
+
+  const grossAvailableDays = workingDays - holidays - leaves - halfLeaves - (member.training || 0);
+
+  return {
+    workingDays,
+    holidays,
+    leaves,
+    halfLeaves,
+    productivityFactor,
+    grossAvailableDays,
+    availableDays: grossAvailableDays * (productivityFactor / 100)
+  };
+}
+
+function getDailySummary(dates) {
+  return dates.map(date => {
+    const dateKey = date.toISOString().split('T')[0];
+    const summary = { working: 0, half: 0, leave: 0, holiday: 0 };
+
+    state.members.forEach(member => {
+      const status = getDailyStatus(member, dateKey);
+      const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+      if (status === 'H') summary.holiday += 1;
+      else if (status === 'L0') summary.leave += 1;
+      else if (status === 'L0.5') summary.half += 1;
+      else if (status === 'W' || (!status && !isWeekend)) summary.working += 1;
+    });
+
+    return { date, ...summary };
+  });
+}
+
+// ════════════════════════════════════════════
+// DASHBOARD PAGE
+// ════════════════════════════════════════════
+function renderDashboard() {
+  if (state.members.length === 0) {
+    document.getElementById('utilization-tbody').innerHTML = '<tr><td colspan="6" class="text-center text-muted">No team members configured</td></tr>';
+    document.getElementById('stat-members').textContent = '0';
+    document.getElementById('stat-total-days').textContent = '0.0';
+    document.getElementById('stat-total-hours').textContent = '0.0';
+    document.getElementById('stat-avg-daily').textContent = '0.0';
+    document.getElementById('stat-productivity').textContent = '0.0%';
+    return;
+  }
+
+  const tbody = document.getElementById('utilization-tbody');
+  tbody.innerHTML = '';
+
+  let totalDays = 0;
+  let totalHours = 0;
+  let grossAvailableHours = 0;
+
+  state.members.forEach(member => {
+    const totals = getMemberDayTotals(member);
+    const availableDays = totals.availableDays * (member.allocation / 100);
+    const availableHours = availableDays * state.config.hoursPerDay;
+    const memberGrossHours = state.config.workingDays * state.config.hoursPerDay * (member.allocation / 100);
+    
+    totalDays += availableDays;
+    totalHours += availableHours;
+    grossAvailableHours += memberGrossHours;
+
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${member.name}</td>
+      <td><span class="badge badge-blue">${member.role}</span></td>
+      <td>${totals.workingDays}</td>
+      <td>${availableDays.toFixed(2)}</td>
+      <td>${availableHours.toFixed(2)}</td>
+      <td>
+        <div class="capacity-bar">
+          <div class="bar">
+            <div class="bar-fill" style="width: ${Math.min((availableHours / (state.config.hoursPerDay * 2)) * 100, 100)}%"></div>
+          </div>
+          <div class="bar-val">${(member.allocation).toFixed(0)}%</div>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(row);
+  });
+
+  const avgDaily = state.members.length > 0 ? totalHours / Math.max(state.config.workingDays || 1, 1) : 0;
+  const productivityFactor = grossAvailableHours > 0 ? (totalHours / grossAvailableHours) * 100 : 0;
+
+  document.getElementById('stat-members').textContent = state.members.length;
+  document.getElementById('stat-total-days').textContent = totalDays.toFixed(2);
+  document.getElementById('stat-total-hours').textContent = totalHours.toFixed(2);
+  document.getElementById('stat-avg-daily').textContent = avgDaily.toFixed(2);
+  document.getElementById('stat-productivity').textContent = `${productivityFactor.toFixed(1)}%`;
+}
+
+// ════════════════════════════════════════════
+// CAPACITY PAGE
+// ════════════════════════════════════════════
+function renderCapacity() {
+  if (state.members.length === 0) {
+    document.getElementById('capacity-tbody').innerHTML = '<tr><td colspan="10" class="text-center text-muted">No team members configured</td></tr>';
+    document.getElementById('capacity-viz').innerHTML = '<p class="text-muted text-center">Add team members to see capacity visualization</p>';
+    renderTeamPlanner();
+    return;
+  }
+
+  const tbody = document.getElementById('capacity-tbody');
+  tbody.innerHTML = '';
+
+  let totalAvailableDays = 0;
+  let totalAvailableHours = 0;
+
+  state.members.forEach(member => {
+    const totals = getMemberDayTotals(member);
+    const availableDays = totals.availableDays * (member.allocation / 100);
+    const availableHours = availableDays * state.config.hoursPerDay;
+    const hoursPerDay = state.config.hoursPerDay * (member.allocation / 100);
+
+    totalAvailableDays += availableDays;
+    totalAvailableHours += availableHours;
+
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${member.name}</td>
+      <td>${member.role}</td>
+      <td>${member.allocation}%</td>
+      <td>${totals.workingDays.toFixed(2)}</td>
+      <td>${member.saturdays.toFixed(2)}</td>
+      <td>${totals.holidays.toFixed(2)}</td>
+      <td>${(totals.leaves + totals.halfLeaves).toFixed(2)}</td>
+      <td>${availableDays.toFixed(2)}</td>
+      <td>${availableHours.toFixed(2)}</td>
+      <td>${hoursPerDay.toFixed(2)}</td>
+    `;
+    tbody.appendChild(row);
+  });
+
+  document.getElementById('total-available-days').textContent = `<strong>${totalAvailableDays.toFixed(2)}</strong>`;
+  document.getElementById('total-available-hours').textContent = `<strong>${totalAvailableHours.toFixed(2)}</strong>`;
+
+  // Visualization
+  const viz = document.getElementById('capacity-viz');
+  viz.innerHTML = '';
+
+  state.members.forEach(member => {
+    const totals = getMemberDayTotals(member);
+    const availableDays = totals.availableDays * (member.allocation / 100);
+    const availableHours = availableDays * state.config.hoursPerDay;
+    const percentFilled = Math.min((availableHours / (state.config.hoursPerDay * state.config.workingDays)) * 100, 100);
+
+    const card = document.createElement('div');
+    card.style.marginBottom = '16px';
+    card.innerHTML = `
+      <div style="margin-bottom: 8px; display: flex; justify-content: space-between;">
+        <strong>${member.name}</strong>
+        <span class="text-muted">${availableHours.toFixed(1)} hrs (${availableDays.toFixed(1)} days)</span>
+      </div>
+      <div class="bar">
+        <div class="bar-fill ${percentFilled > 100 ? 'danger' : percentFilled > 85 ? 'warning' : ''}" style="width: ${percentFilled}%"></div>
+      </div>
+    `;
+    viz.appendChild(card);
+  });
+
+  renderTeamPlanner();
+}
+
+function renderReport() {
+  const totalAvailableDays = state.members.reduce((sum, member) => {
+    const totals = getMemberDayTotals(member);
+    return sum + (totals.availableDays * (member.allocation / 100));
+  }, 0);
+  const totalAvailableHours = totalAvailableDays * (state.config.hoursPerDay || 0);
+
+  const reportMetaBar = document.getElementById('report-meta-bar');
+  reportMetaBar.innerHTML = `
+    <span><strong>Program / Project:</strong> ${state.config.projectName || '—'}</span>
+    <span><strong>Team / Module:</strong> ${state.config.moduleName || '—'}</span>
+    <span><strong>Sprint Number:</strong> ${state.config.sprintNum || '—'}</span>
+    <span><strong>Sprint Name:</strong> ${state.config.sprintName || '—'}</span>
+    <span><strong>Productivity Factor:</strong> ${grossProductivityFactor().toFixed(1)}%</span>
+  `;
+
+  const dashboardStats = document.getElementById('report-dashboard-stats');
+  dashboardStats.innerHTML = `
+    <div class="stat-card" style="--accent-color: var(--accent2)">
+      <div class="stat-label">Total Team Members</div>
+      <div class="stat-value">${state.members.length}</div>
+      <div class="stat-sub">Active resources</div>
+    </div>
+    <div class="stat-card" style="--accent-color: var(--accent)">
+      <div class="stat-label">Total Capacity (Days)</div>
+      <div class="stat-value">${totalAvailableDays.toFixed(2)}</div>
+      <div class="stat-sub">Available work days</div>
+    </div>
+    <div class="stat-card" style="--accent-color: var(--accent)">
+      <div class="stat-label">Total Capacity (Hours)</div>
+      <div class="stat-value">${totalAvailableHours.toFixed(2)}</div>
+      <div class="stat-sub">Hours available</div>
+    </div>
+    <div class="stat-card" style="--accent-color: var(--accent4)">
+      <div class="stat-label">Avg Daily Capacity</div>
+      <div class="stat-value">${(state.members.length > 0 ? totalAvailableHours / Math.max(state.config.workingDays || 1, 1) : 0).toFixed(2)}</div>
+      <div class="stat-sub">Hours per day</div>
+    </div>
+    <div class="stat-card" style="--accent-color: var(--accent2)">
+      <div class="stat-label">Productivity Factor</div>
+      <div class="stat-value">${grossProductivityFactor().toFixed(1)}%</div>
+      <div class="stat-sub">Productive hours / total available hours</div>
+    </div>`;
+
+  const capacityTable = document.getElementById('report-capacity-table');
+  if (state.members.length === 0) {
+    capacityTable.innerHTML = '<div style="padding:18px;color:var(--muted);">Add team members to generate the PDF report.</div>';
+  } else {
+    capacityTable.innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th>Team Member</th>
+            <th>Role</th>
+            <th>Allocation %</th>
+            <th>PF %</th>
+            <th>Working Days</th>
+            <th>Holidays</th>
+            <th>Leaves</th>
+            <th>Available Days</th>
+            <th>Available Hours</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${state.members.map(member => {
+            const totals = getMemberDayTotals(member);
+            const availableDays = totals.availableDays * (member.allocation / 100);
+            const availableHours = availableDays * state.config.hoursPerDay;
+            return `
+              <tr>
+                <td><strong>${member.name}</strong></td>
+                <td>${member.role}</td>
+                <td>${(member.allocation ?? 100).toFixed(0)}%</td>
+                <td>${(member.productivityFactor ?? 95).toFixed(0)}%</td>
+                <td>${totals.workingDays.toFixed(2)}</td>
+                <td>${totals.holidays.toFixed(2)}</td>
+                <td>${(totals.leaves + totals.halfLeaves).toFixed(2)}</td>
+                <td>${availableDays.toFixed(2)}</td>
+                <td>${availableHours.toFixed(2)}</td>
+              </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+  }
+
+  const viz = document.getElementById('report-capacity-viz');
+  if (state.members.length === 0) {
+    viz.innerHTML = '<div style="padding:18px;color:var(--muted);">Add team members to view the capacity visualization.</div>';
+  } else {
+    viz.innerHTML = '';
+    state.members.forEach(member => {
+      const totals = getMemberDayTotals(member);
+      const availableDays = totals.availableDays * (member.allocation / 100);
+      const availableHours = availableDays * state.config.hoursPerDay;
+      const percentFilled = Math.min((availableHours / (state.config.hoursPerDay * state.config.workingDays)) * 100, 100);
+
+      const card = document.createElement('div');
+      card.style.marginBottom = '16px';
+      card.innerHTML = `
+        <div style="margin-bottom: 8px; display: flex; justify-content: space-between;">
+          <strong>${member.name}</strong>
+          <span class="text-muted">${availableHours.toFixed(1)} hrs (${availableDays.toFixed(1)} days)</span>
+        </div>
+        <div class="bar">
+          <div class="bar-fill ${percentFilled > 100 ? 'danger' : percentFilled > 85 ? 'warning' : ''}" style="width: ${percentFilled}%"></div>
+        </div>
+      `;
+      viz.appendChild(card);
+    });
+  }
+}
+
+function grossProductivityFactor() {
+  const grossAvailableHours = state.members.reduce((sum, member) => {
+    const grossDays = Math.max((state.config.workingDays || 0) - (member.holidays || 0) - (member.leaves || 0) - (member.training || 0), 0);
+    return sum + (grossDays * state.config.hoursPerDay * ((member.allocation ?? 100) / 100));
+  }, 0);
+  const productiveHours = state.members.reduce((sum, member) => {
+    const totals = getMemberDayTotals(member);
+    return sum + ((totals.availableDays * (member.allocation / 100)) * state.config.hoursPerDay);
+  }, 0);
+  return grossAvailableHours > 0 ? (productiveHours / grossAvailableHours) * 100 : 0;
+}
+
+function printReport() {
+  if (!hasRequiredConfig()) {
+    toast('Fill Program / Project, Team / Module, Sprint Number, and Sprint Name before printing');
+    return;
+  }
+  renderReport();
+  window.print();
+}
+
+// ════════════════════════════════════════════
+// EXPORT / IMPORT
+// ════════════════════════════════════════════
+function exportData() {
+  const csvLines = [
+    'SPRINT_CONFIG',
+    `Program / Project Name,${state.config.projectName || ''}`,
+    `Team / Module Name,${state.config.moduleName || ''}`,
+    `Sprint Number,${state.config.sprintNum || ''}`,
+    `Sprint Name,${state.config.sprintName || ''}`,
+    `Start Date,${state.config.startDate || ''}`,
+    `End Date,${state.config.endDate || ''}`,
+    `Working Days,${state.config.workingDays || ''}`,
+    `Hours Per Day,${state.config.hoursPerDay || ''}`,
+    `Scrum Master,${state.config.sm || ''}`,
+    `Product Owner,${state.config.po || ''}`,
+    '',
+    'TEAM_MEMBERS',
+    'Name,Role,Allocation %,Productivity Factor %,Holidays,Leaves,Saturdays,Training Days'
+  ];
+
+  state.members.forEach(member => {
+    csvLines.push(
+      `${member.name || ''},${member.role || ''},${member.allocation ?? 100},${member.productivityFactor ?? 100},${member.holidays ?? 0},${member.leaves ?? 0},${member.saturdays ?? 0},${member.training ?? 0}`
+    );
+  });
+
+  const blob = new Blob([csvLines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `sprint-capacity-${state.config.sprintNum}.csv`;
+  a.click();
+  window.URL.revokeObjectURL(url);
+  
+  toast('Data exported ✓');
+}
+
+function importData() {
+  document.getElementById('import-modal').classList.add('show');
+}
+
+function closeImportModal() {
+  document.getElementById('import-modal').classList.remove('show');
+}
+
+function processImport() {
+  const file = document.getElementById('import-file').files[0];
+  if (!file) {
+    toast('Please select a file');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const csv = e.target.result;
+      const lines = csv.split('\n');
+      let section = '';
+      
+      lines.forEach(line => {
+        line = line.trim();
+        if (!line) return;
+        
+        if (line === 'SPRINT_CONFIG') {
+          section = 'config';
+        } else if (line === 'TEAM_MEMBERS') {
+          section = 'members';
+        } else if (section === 'config') {
+          const [key, value] = line.split(',').map(s => s.trim());
+          if (key === 'Program / Project Name') state.config.projectName = value;
+          else if (key === 'Team / Module Name') state.config.moduleName = value;
+          if (key === 'Sprint Number') state.config.sprintNum = value;
+          else if (key === 'Sprint Name') state.config.sprintName = value;
+          else if (key === 'Start Date') state.config.startDate = value;
+          else if (key === 'End Date') state.config.endDate = value;
+          else if (key === 'Working Days') state.config.workingDays = parseFloat(value);
+          else if (key === 'Hours Per Day') state.config.hoursPerDay = parseFloat(value);
+          else if (key === 'Scrum Master') state.config.sm = value;
+          else if (key === 'Product Owner') state.config.po = value;
+        } else if (section === 'members' && !line.includes('Name,Role')) {
+          const parts = line.split(',');
+          if (parts.length >= 8) {
+            state.members.push(normalizeMember({
+              name: parts[0].trim(),
+              role: parts[1].trim(),
+              allocation: parseFloat(parts[2]),
+              productivityFactor: parseFloat(parts[3]),
+              holidays: parseFloat(parts[4]),
+              leaves: parseFloat(parts[5]),
+              saturdays: parseFloat(parts[6]),
+              training: parseFloat(parts[7])
+            }));
+          } else if (parts.length >= 7) {
+            state.members.push(normalizeMember({
+              name: parts[0].trim(),
+              role: parts[1].trim(),
+              allocation: parseFloat(parts[2]),
+              holidays: parseFloat(parts[3]),
+              leaves: parseFloat(parts[4]),
+              saturdays: parseFloat(parts[5]),
+              training: parseFloat(parts[6])
+            }));
+          }
+        }
+      });
+
+      saveState();
+      closeImportModal();
+      renderConfig();
+      renderDashboard();
+      renderCapacity();
+      toast('Data imported successfully ✓');
+    } catch (err) {
+      toast('Error importing file');
+      console.error(err);
+    }
+  };
+  reader.readAsText(file);
+}
+
+// ════════════════════════════════════════════
+// UTILITIES
+// ════════════════════════════════════════════
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function updateClock() {
+  document.getElementById('clock').textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+// ════════════════════════════════════════════
+// START
+// ════════════════════════════════════════════
+init();
+</script>
+
+</body>
+</html>
