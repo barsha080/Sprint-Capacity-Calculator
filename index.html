@@ -228,6 +228,26 @@
     margin-top: 4px; 
   }
 
+  #dashboard-meta {
+    gap: 10px;
+  }
+
+  #dashboard-meta .stat-card {
+    padding: 14px 16px;
+  }
+
+  #dashboard-meta .stat-label {
+    font-size: 9px;
+  }
+
+  #dashboard-meta .stat-value {
+    font-size: 18px;
+  }
+
+  #dashboard-meta .stat-sub {
+    font-size: 10px;
+  }
+
   /* ─── SECTION ─── */
   .section { 
     margin-bottom: 28px; 
@@ -552,8 +572,15 @@
     font-size: 11px;
     appearance: none;
     -webkit-appearance: none;
-    background: transparent;
+    background: var(--surface2);
+    color: var(--text);
     transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    color-scheme: dark;
+  }
+
+  .day-status-select option {
+    background: var(--surface2);
+    color: var(--text);
   }
 
   .day-status-select.status-working { background: rgba(0, 229, 160, 0.12); }
@@ -1727,16 +1754,16 @@ function printReport() {
 function exportData() {
   const csvLines = [
     'SPRINT_CONFIG',
-    `Program / Project Name,${state.config.projectName || ''}`,
-    `Team / Module Name,${state.config.moduleName || ''}`,
-    `Sprint Number,${state.config.sprintNum || ''}`,
-    `Sprint Name,${state.config.sprintName || ''}`,
+    `Program / Project Name,${encodeURIComponent(state.config.projectName || '')}`,
+    `Team / Module Name,${encodeURIComponent(state.config.moduleName || '')}`,
+    `Sprint Number,${encodeURIComponent(state.config.sprintNum || '')}`,
+    `Sprint Name,${encodeURIComponent(state.config.sprintName || '')}`,
     `Start Date,${state.config.startDate || ''}`,
     `End Date,${state.config.endDate || ''}`,
     `Working Days,${state.config.workingDays || ''}`,
     `Hours Per Day,${state.config.hoursPerDay || ''}`,
-    `Scrum Master,${state.config.sm || ''}`,
-    `Product Owner,${state.config.po || ''}`,
+    `Scrum Master,${encodeURIComponent(state.config.sm || '')}`,
+    `Product Owner,${encodeURIComponent(state.config.po || '')}`,
     '',
     'TEAM_MEMBERS',
     'Name,Role,Allocation %,Productivity Factor %,Holidays,Leaves,Saturdays,Training Days'
@@ -1744,8 +1771,16 @@ function exportData() {
 
   state.members.forEach(member => {
     csvLines.push(
-      `${member.name || ''},${member.role || ''},${member.allocation ?? 100},${member.productivityFactor ?? 100},${member.holidays ?? 0},${member.leaves ?? 0},${member.saturdays ?? 0},${member.training ?? 0}`
+      `${encodeURIComponent(member.name || '')},${encodeURIComponent(member.role || '')},${member.allocation ?? 100},${member.productivityFactor ?? 100},${member.holidays ?? 0},${member.leaves ?? 0},${member.saturdays ?? 0},${member.training ?? 0}`
     );
+  });
+
+  csvLines.push('', 'DAY_PLANS', 'Name,Date,Status');
+
+  state.members.forEach(member => {
+    Object.entries(member.dayPlan || {}).forEach(([dateKey, status]) => {
+      csvLines.push(`${encodeURIComponent(member.name || '')},${dateKey},${encodeURIComponent(status)}`);
+    });
   });
 
   const blob = new Blob([csvLines.join('\n')], { type: 'text/csv;charset=utf-8;' });
@@ -1780,6 +1815,20 @@ function processImport() {
       const csv = e.target.result;
       const lines = csv.split('\n');
       let section = '';
+
+      state.config = {
+        projectName: '',
+        moduleName: '',
+        sprintNum: 'S-01',
+        sprintName: 'Sprint 1',
+        startDate: new Date().toISOString().split('T')[0],
+        endDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        workingDays: 10,
+        hoursPerDay: 8.5,
+        sm: '',
+        po: ''
+      };
+      state.members = [];
       
       lines.forEach(line => {
         line = line.trim();
@@ -1789,11 +1838,14 @@ function processImport() {
           section = 'config';
         } else if (line === 'TEAM_MEMBERS') {
           section = 'members';
-        } else if (section === 'config') {
-          const [key, value] = line.split(',').map(s => s.trim());
+        } else if (line === 'DAY_PLANS') {
+          section = 'dayPlans';
+        } else if (section === 'config' && line !== 'Name,Role') {
+          const [key, rawValue = ''] = line.split(',');
+          const value = decodeURIComponent(rawValue.trim());
           if (key === 'Program / Project Name') state.config.projectName = value;
           else if (key === 'Team / Module Name') state.config.moduleName = value;
-          if (key === 'Sprint Number') state.config.sprintNum = value;
+          else if (key === 'Sprint Number') state.config.sprintNum = value;
           else if (key === 'Sprint Name') state.config.sprintName = value;
           else if (key === 'Start Date') state.config.startDate = value;
           else if (key === 'End Date') state.config.endDate = value;
@@ -1805,8 +1857,8 @@ function processImport() {
           const parts = line.split(',');
           if (parts.length >= 8) {
             state.members.push(normalizeMember({
-              name: parts[0].trim(),
-              role: parts[1].trim(),
+              name: decodeURIComponent(parts[0].trim()),
+              role: decodeURIComponent(parts[1].trim()),
               allocation: parseFloat(parts[2]),
               productivityFactor: parseFloat(parts[3]),
               holidays: parseFloat(parts[4]),
@@ -1816,14 +1868,26 @@ function processImport() {
             }));
           } else if (parts.length >= 7) {
             state.members.push(normalizeMember({
-              name: parts[0].trim(),
-              role: parts[1].trim(),
+              name: decodeURIComponent(parts[0].trim()),
+              role: decodeURIComponent(parts[1].trim()),
               allocation: parseFloat(parts[2]),
               holidays: parseFloat(parts[3]),
               leaves: parseFloat(parts[4]),
               saturdays: parseFloat(parts[5]),
               training: parseFloat(parts[6])
             }));
+          }
+        } else if (section === 'dayPlans' && !line.includes('Name,Date,Status')) {
+          const parts = line.split(',');
+          if (parts.length >= 3) {
+            const memberName = decodeURIComponent(parts[0].trim());
+            const dateKey = parts[1].trim();
+            const status = decodeURIComponent(parts[2].trim());
+            const member = state.members.find(item => item.name === memberName);
+            if (member) {
+              if (!member.dayPlan) member.dayPlan = {};
+              if (status) member.dayPlan[dateKey] = status;
+            }
           }
         }
       });
