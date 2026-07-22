@@ -248,6 +248,63 @@
     font-size: 10px;
   }
 
+  #capacity-table {
+    table-layout: fixed;
+    width: 100%;
+  }
+
+  #capacity-table th,
+  #capacity-table td {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  #capacity-table tfoot td {
+    background: var(--surface2);
+    border-top: 1px solid var(--border);
+    padding: 12px 12px;
+    vertical-align: middle;
+  }
+
+  .total-row-label {
+    font-family: inherit;
+    font-size: 12px;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .total-row-label strong {
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .total-metric {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    align-items: flex-start;
+  }
+
+  .total-metric span {
+    font-size: 10px;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--muted);
+  }
+
+  .total-metric strong {
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
   /* ─── SECTION ─── */
   .section { 
     margin-bottom: 28px; 
@@ -312,9 +369,7 @@
 
   tfoot { 
     background: var(--surface2); 
-    font-weight: 600; 
   }
-
   tfoot td { 
     font-weight: 600; 
   }
@@ -905,27 +960,27 @@
           <table id="capacity-table">
             <thead>
               <tr>
+                <th>Actions</th>
                 <th>Team Member</th>
                 <th>Role</th>
                 <th>Allocation %</th>
-                <th>Working Days</th>
+                <th>Sprint Working Days</th>
                 <th>Misc / Training</th>
                 <th>Holidays</th>
                 <th>Leaves</th>
                 <th>Available Days</th>
                 <th>Available Hours</th>
                 <th>Hours/Day</th>
-                <th>Actions</th>
               </tr>
             </thead>
             <tbody id="capacity-tbody">
             </tbody>
             <tfoot>
               <tr>
-                <td colspan="8"><strong>TOTAL</strong></td>
-                <td id="total-available-days"><strong>0.0</strong></td>
-                <td id="total-available-hours"><strong>0.0</strong></td>
-                <td></td>
+                <td colspan="5" class="total-row-label"><strong>TOTAL</strong><span>Capacity summary</span></td>
+                <td id="total-available-days"><div class="total-metric"><span>Available Days</span><strong>0.0</strong></div></td>
+                <td id="total-available-hours"><div class="total-metric"><span>Available Hours</span><strong>0.0</strong></div></td>
+                <td class="text-muted" style="text-align:center;">—</td>
               </tr>
             </tfoot>
           </table>
@@ -1455,12 +1510,15 @@ function getMemberDayTotals(member) {
 
     if (status === 'H') holidays += 1;
     else if (status === 'L0') leaves += 1;
-    else if (status === 'L0.5') halfLeaves += 0.5;
+    else if (status === 'L0.5') {
+      workingDays += 0.5;
+      halfLeaves += 0.5;
+    }
     else if (status === 'W') workingDays += 1;
     else if (!isWeekend) workingDays += 1;
   });
 
-  const grossAvailableDays = workingDays - holidays - leaves - halfLeaves - (member.training || 0);
+  const grossAvailableDays = workingDays - holidays - leaves - (member.training || 0);
 
   return {
     workingDays,
@@ -1579,23 +1637,23 @@ function renderCapacity() {
 
     const row = document.createElement('tr');
     row.innerHTML = `
+      <td><button class="secondary" onclick="editMember(${state.members.indexOf(member)})" style="padding:4px 8px; font-size:11px; white-space:nowrap;">Edit</button></td>
       <td>${member.name}</td>
       <td>${member.role}</td>
       <td>${member.allocation}%</td>
-      <td>${totals.workingDays.toFixed(2)}</td>
+      <td>${Number(state.config.workingDays || 0).toFixed(2)}</td>
       <td>${(member.training ?? 0).toFixed(2)}</td>
       <td>${totals.holidays.toFixed(2)}</td>
       <td>${(totals.leaves + totals.halfLeaves).toFixed(2)}</td>
       <td>${availableDays.toFixed(2)}</td>
       <td>${availableHours.toFixed(2)}</td>
       <td>${hoursPerDay.toFixed(2)}</td>
-      <td><button class="secondary" onclick="editMember(${state.members.indexOf(member)})" style="padding:4px 8px; font-size:11px; white-space:nowrap;">Edit</button></td>
     `;
     tbody.appendChild(row);
   });
 
-  document.getElementById('total-available-days').textContent = `<strong>${totalAvailableDays.toFixed(2)}</strong>`;
-  document.getElementById('total-available-hours').textContent = `<strong>${totalAvailableHours.toFixed(2)}</strong>`;
+  document.getElementById('total-available-days').innerHTML = `<div class="total-metric"><span>Available Days</span><strong>${totalAvailableDays.toFixed(2)}</strong></div>`;
+  document.getElementById('total-available-hours').innerHTML = `<div class="total-metric"><span>Available Hours</span><strong>${totalAvailableHours.toFixed(2)}</strong></div>`;
 
   // Visualization
   const viz = document.getElementById('capacity-viz');
