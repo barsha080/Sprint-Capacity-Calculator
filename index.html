@@ -64,6 +64,10 @@
     border-radius: 20px;
     font-weight: 500;
     letter-spacing: 1px;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .header-meta {
@@ -821,13 +825,8 @@
             <div class="stat-sub">Required field</div>
           </div>
           <div class="stat-card" style="--accent-color: var(--accent4)">
-            <div class="stat-label">Sprint Number</div>
-            <div class="stat-value" id="dash-sprint-num">—</div>
-            <div class="stat-sub">Required field</div>
-          </div>
-          <div class="stat-card" style="--accent-color: var(--accent3)">
-            <div class="stat-label">Sprint Name</div>
-            <div class="stat-value" id="dash-sprint-name">—</div>
+            <div class="stat-label">Sprint Number / Sprint Name</div>
+            <div class="stat-value" id="dash-sprint-info">—</div>
             <div class="stat-sub">Required field</div>
           </div>
         </div>
@@ -903,12 +902,8 @@
             <input type="text" id="config-module-name" placeholder="Enter team or module name" required>
           </div>
           <div class="form-group">
-            <label class="form-label">Sprint Number</label>
-            <input type="text" id="config-sprint-num" placeholder="e.g., S-01" value="S-01" required>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Sprint Name</label>
-            <input type="text" id="config-sprint-name" placeholder="e.g., Sprint 1" value="Sprint 1" required>
+            <label class="form-label">Sprint Number / Sprint Name</label>
+            <input type="text" id="config-sprint-info" placeholder="e.g., S-01 / Sprint 1" value="S-01 / Sprint 1" required>
           </div>
           <div class="form-group">
             <label class="form-label">Start Date</label>
@@ -1093,8 +1088,7 @@ const state = {
   config: {
     projectName: '',
     moduleName: '',
-    sprintNum: 'S-01',
-    sprintName: 'Sprint 1',
+    sprintInfo: 'S-01 / Sprint 1',
     startDate: new Date().toISOString().split('T')[0],
     endDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     workingDays: 10,
@@ -1151,6 +1145,11 @@ function loadState() {
   if (saved) {
     const loaded = JSON.parse(saved);
     state.config = loaded.config || state.config;
+    if (!state.config.sprintInfo) {
+      const sprintNumber = state.config.sprintNum || 'S-01';
+      const sprintName = state.config.sprintName || 'Sprint 1';
+      state.config.sprintInfo = `${sprintNumber} / ${sprintName}`;
+    }
     state.members = (loaded.members || []).map(normalizeMember);
   }
 }
@@ -1177,8 +1176,7 @@ function navigate(page) {
 function renderConfig() {
   document.getElementById('config-project-name').value = state.config.projectName || '';
   document.getElementById('config-module-name').value = state.config.moduleName || '';
-  document.getElementById('config-sprint-num').value = state.config.sprintNum;
-  document.getElementById('config-sprint-name').value = state.config.sprintName;
+  document.getElementById('config-sprint-info').value = state.config.sprintInfo || '';
   document.getElementById('config-start-date').value = state.config.startDate;
   document.getElementById('config-end-date').value = state.config.endDate;
   document.getElementById('config-working-days').value = state.config.workingDays;
@@ -1186,19 +1184,17 @@ function renderConfig() {
   document.getElementById('config-sm').value = state.config.sm;
   document.getElementById('config-po').value = state.config.po;
 
-  document.getElementById('sprint-badge').textContent = state.config.sprintNum;
+  document.getElementById('sprint-badge').textContent = state.config.sprintInfo || '—';
 
   document.getElementById('dash-project').textContent = state.config.projectName || '—';
   document.getElementById('dash-module').textContent = state.config.moduleName || '—';
-  document.getElementById('dash-sprint-num').textContent = state.config.sprintNum || '—';
-  document.getElementById('dash-sprint-name').textContent = state.config.sprintName || '—';
+  document.getElementById('dash-sprint-info').textContent = state.config.sprintInfo || '—';
 }
 
 function saveConfig() {
   state.config.projectName = document.getElementById('config-project-name').value;
   state.config.moduleName = document.getElementById('config-module-name').value;
-  state.config.sprintNum = document.getElementById('config-sprint-num').value;
-  state.config.sprintName = document.getElementById('config-sprint-name').value;
+  state.config.sprintInfo = document.getElementById('config-sprint-info').value;
   state.config.startDate = document.getElementById('config-start-date').value;
   state.config.endDate = document.getElementById('config-end-date').value;
   state.config.workingDays = parseFloat(document.getElementById('config-working-days').value);
@@ -1206,13 +1202,13 @@ function saveConfig() {
   state.config.sm = document.getElementById('config-sm').value;
   state.config.po = document.getElementById('config-po').value;
 
-  if (!state.config.projectName || !state.config.moduleName || !state.config.sprintNum || !state.config.sprintName) {
-    toast('Program, module, sprint number, and sprint name are required');
+  if (!state.config.projectName || !state.config.moduleName || !state.config.sprintInfo) {
+    toast('Program, module, and sprint number/name are required');
     return;
   }
 
   saveState();
-  document.getElementById('sprint-badge').textContent = state.config.sprintNum;
+  document.getElementById('sprint-badge').textContent = state.config.sprintInfo;
   
   toast('Configuration saved ✓');
   renderConfig();
@@ -1224,8 +1220,7 @@ function hasRequiredConfig() {
   return Boolean(
     (state.config.projectName || '').trim() &&
     (state.config.moduleName || '').trim() &&
-    (state.config.sprintNum || '').trim() &&
-    (state.config.sprintName || '').trim()
+    (state.config.sprintInfo || '').trim()
   );
 }
 
@@ -1236,8 +1231,7 @@ function resetConfiguration() {
   state.config = {
     projectName: '',
     moduleName: '',
-    sprintNum: 'S-01',
-    sprintName: 'Sprint 1',
+    sprintInfo: 'S-01 / Sprint 1',
     startDate: new Date().toISOString().split('T')[0],
     endDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     workingDays: 10,
@@ -1247,7 +1241,7 @@ function resetConfiguration() {
   };
   state.members = [];
   localStorage.removeItem('sprintCapacityState');
-  document.getElementById('sprint-badge').textContent = state.config.sprintNum;
+  document.getElementById('sprint-badge').textContent = state.config.sprintInfo;
   renderConfig();
   renderDashboard();
   renderCapacity();
@@ -1693,8 +1687,7 @@ function renderReport() {
   reportMetaBar.innerHTML = `
     <span><strong>Program / Project:</strong> ${state.config.projectName || '—'}</span>
     <span><strong>Team / Module:</strong> ${state.config.moduleName || '—'}</span>
-    <span><strong>Sprint Number:</strong> ${state.config.sprintNum || '—'}</span>
-    <span><strong>Sprint Name:</strong> ${state.config.sprintName || '—'}</span>
+    <span><strong>Sprint Number / Sprint Name:</strong> ${state.config.sprintInfo || '—'}</span>
     <span><strong>Productivity Factor:</strong> ${grossProductivityFactor().toFixed(1)}%</span>
   `;
 
@@ -1808,7 +1801,7 @@ function grossProductivityFactor() {
 
 function printReport() {
   if (!hasRequiredConfig()) {
-    toast('Fill Program / Project, Team / Module, Sprint Number, and Sprint Name before printing');
+    toast('Fill Program / Project, Team / Module, and Sprint Number / Sprint Name before printing');
     return;
   }
   renderReport();
@@ -1823,8 +1816,7 @@ function exportData() {
     'SPRINT_CONFIG',
     `Program / Project Name,${encodeURIComponent(state.config.projectName || '')}`,
     `Team / Module Name,${encodeURIComponent(state.config.moduleName || '')}`,
-    `Sprint Number,${encodeURIComponent(state.config.sprintNum || '')}`,
-    `Sprint Name,${encodeURIComponent(state.config.sprintName || '')}`,
+    `Sprint Number / Sprint Name,${encodeURIComponent(state.config.sprintInfo || '')}`,
     `Start Date,${state.config.startDate || ''}`,
     `End Date,${state.config.endDate || ''}`,
     `Working Days,${state.config.workingDays || ''}`,
@@ -1854,7 +1846,7 @@ function exportData() {
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `sprint-capacity-${state.config.sprintNum}.csv`;
+  a.download = `sprint-capacity-${(state.config.sprintInfo || 'sprint').replace(/\s+/g, '-')}.csv`;
   a.click();
   window.URL.revokeObjectURL(url);
   
@@ -1886,8 +1878,7 @@ function processImport() {
       state.config = {
         projectName: '',
         moduleName: '',
-        sprintNum: 'S-01',
-        sprintName: 'Sprint 1',
+        sprintInfo: 'S-01 / Sprint 1',
         startDate: new Date().toISOString().split('T')[0],
         endDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         workingDays: 10,
@@ -1912,8 +1903,11 @@ function processImport() {
           const value = decodeURIComponent(rawValue.trim());
           if (key === 'Program / Project Name') state.config.projectName = value;
           else if (key === 'Team / Module Name') state.config.moduleName = value;
-          else if (key === 'Sprint Number') state.config.sprintNum = value;
-          else if (key === 'Sprint Name') state.config.sprintName = value;
+          else if (key === 'Sprint Number / Sprint Name' || key === 'Sprint Number' || key === 'Sprint Name') {
+            state.config.sprintInfo = key === 'Sprint Number / Sprint Name' ? value : `${state.config.sprintInfo || 'S-01 / Sprint 1'}`;
+            if (key === 'Sprint Number') state.config.sprintInfo = `${value} / ${(state.config.sprintInfo.split('/')[1] || 'Sprint 1').trim()}`;
+            if (key === 'Sprint Name') state.config.sprintInfo = `${(state.config.sprintInfo.split('/')[0] || 'S-01').trim()} / ${value}`;
+          }
           else if (key === 'Start Date') state.config.startDate = value;
           else if (key === 'End Date') state.config.endDate = value;
           else if (key === 'Working Days') state.config.workingDays = parseFloat(value);
