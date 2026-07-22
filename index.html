@@ -909,19 +909,20 @@
                 <th>Role</th>
                 <th>Allocation %</th>
                 <th>Working Days</th>
-                <th>Saturdays</th>
+                <th>Misc / Training</th>
                 <th>Holidays</th>
                 <th>Leaves</th>
                 <th>Available Days</th>
                 <th>Available Hours</th>
                 <th>Hours/Day</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody id="capacity-tbody">
             </tbody>
             <tfoot>
               <tr>
-                <td colspan="7"><strong>TOTAL</strong></td>
+                <td colspan="8"><strong>TOTAL</strong></td>
                 <td id="total-available-days"><strong>0.0</strong></td>
                 <td id="total-available-hours"><strong>0.0</strong></td>
                 <td></td>
@@ -995,6 +996,10 @@
     <div class="form-group">
       <label class="form-label">Productivity Factor %</label>
       <input type="number" id="member-productivity" min="0" max="95" value="95" step="5">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Misc / Training Activities (Days)</label>
+      <input type="number" id="member-training" min="0" max="30" value="0" step="0.5">
     </div>
     <div style="display: flex; gap: 10px; margin-top: 20px;">
       <button onclick="saveTeamMember()" id="member-save-btn">Save</button>
@@ -1199,6 +1204,7 @@ function addTeamMember() {
   document.getElementById('member-modal-title').textContent = 'Add Team Member';
   document.getElementById('member-save-btn').textContent = 'Save';
   document.getElementById('member-productivity').value = 95;
+  document.getElementById('member-training').value = 0;
   document.getElementById('member-modal').classList.add('show');
 }
 
@@ -1212,6 +1218,7 @@ function editMember(idx) {
   document.getElementById('member-role').value = member.role || 'Developer';
   document.getElementById('member-allocation').value = member.allocation ?? 100;
   document.getElementById('member-productivity').value = Math.min(member.productivityFactor ?? 95, 95);
+  document.getElementById('member-training').value = member.training ?? 0;
   document.getElementById('member-modal').classList.add('show');
 }
 
@@ -1221,6 +1228,7 @@ function closeMemberModal() {
   document.getElementById('member-role').value = 'Developer';
   document.getElementById('member-allocation').value = 100;
   document.getElementById('member-productivity').value = 95;
+  document.getElementById('member-training').value = 0;
   editingMemberIndex = null;
   document.getElementById('member-modal-title').textContent = 'Add Team Member';
   document.getElementById('member-save-btn').textContent = 'Save';
@@ -1241,10 +1249,10 @@ function saveTeamMember() {
     role: document.getElementById('member-role').value,
     allocation: parseFloat(document.getElementById('member-allocation').value),
     productivityFactor: Math.min(parseFloat(document.getElementById('member-productivity').value), 95),
+    training: Number.isFinite(parseFloat(document.getElementById('member-training').value)) ? parseFloat(document.getElementById('member-training').value) : 0,
     holidays: existingMember?.holidays ?? 0,
     leaves: existingMember?.leaves ?? 0,
     saturdays: existingMember?.saturdays ?? 0,
-    training: existingMember?.training ?? 0,
     dayPlan: existingMember?.dayPlan || {}
   };
 
@@ -1575,12 +1583,13 @@ function renderCapacity() {
       <td>${member.role}</td>
       <td>${member.allocation}%</td>
       <td>${totals.workingDays.toFixed(2)}</td>
-      <td>${member.saturdays.toFixed(2)}</td>
+      <td>${(member.training ?? 0).toFixed(2)}</td>
       <td>${totals.holidays.toFixed(2)}</td>
       <td>${(totals.leaves + totals.halfLeaves).toFixed(2)}</td>
       <td>${availableDays.toFixed(2)}</td>
       <td>${availableHours.toFixed(2)}</td>
       <td>${hoursPerDay.toFixed(2)}</td>
+      <td><button class="secondary" onclick="editMember(${state.members.indexOf(member)})" style="padding:4px 8px; font-size:11px; white-space:nowrap;">Edit</button></td>
     `;
     tbody.appendChild(row);
   });
