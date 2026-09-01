@@ -452,6 +452,24 @@
     background: var(--border);
   }
 
+  button.danger {
+    background: #ff6b6b;
+    color: #1a1a1a;
+  }
+
+  button.danger:hover {
+    background: #ff8787;
+  }
+
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  button:disabled:hover {
+    background: var(--surface2);
+  }
+
   /* ─── BADGES ─── */
   .badge {
     display: inline-block;
@@ -961,7 +979,8 @@
                 <th>Role</th>
                 <th>Allocation %</th>
                 <th>Sprint Working Days</th>
-                <th>Misc / Training</th>
+                <th>Misc</th>
+                <th>Training</th>
                 <th>Holidays</th>
                 <th>Leaves</th>
                 <th>Available Days</th>
@@ -973,7 +992,7 @@
             </tbody>
             <tfoot>
               <tr>
-                <td colspan="5" class="total-row-label"><strong>TOTAL</strong><span>Capacity summary</span></td>
+                <td colspan="9" class="total-row-label"><strong>TOTAL</strong><span>Capacity summary</span></td>
                 <td id="total-available-days"><div class="total-metric"><span>Available Days</span><strong>0.0</strong></div></td>
                 <td id="total-available-hours"><div class="total-metric"><span>Available Hours</span><strong>0.0</strong></div></td>
                 <td class="text-muted" style="text-align:center;">—</td>
@@ -1045,11 +1064,15 @@
       <input type="number" id="member-allocation" min="0" max="100" value="100" step="5">
     </div>
     <div class="form-group">
-      <label class="form-label">Productivity Factor %</label>
-      <input type="number" id="member-productivity" min="0" max="95" value="95" step="5">
+      <label class="form-label">Productivity Factor (0 - 0.95)</label>
+      <input type="number" id="member-productivity" min="0" max="0.95" value="0.95" step="0.05">
     </div>
     <div class="form-group">
-      <label class="form-label">Misc / Training Activities (Days)</label>
+      <label class="form-label">Miscellaneous Activities (Days)</label>
+      <input type="number" id="member-misc" min="0" max="30" value="0" step="0.5">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Training Activities (Days)</label>
       <input type="number" id="member-training" min="0" max="30" value="0" step="0.5">
     </div>
     <div style="display: flex; gap: 10px; margin-top: 20px;">
@@ -1101,6 +1124,7 @@ const state = {
 };
 
 let editingMemberIndex = null;
+const selectedMembers = new Set();
 
 // ════════════════════════════════════════════
 // INITIALIZATION
@@ -1127,16 +1151,18 @@ function saveState() {
 }
 
 function normalizeMember(member) {
-  const productivityFactor = Number.isFinite(parseFloat(member.productivityFactor)) ? parseFloat(member.productivityFactor) : 95;
+  let productivityFactor = Number.isFinite(parseFloat(member.productivityFactor)) ? parseFloat(member.productivityFactor) : 0.95;
+  if (productivityFactor > 1) productivityFactor /= 100; // migrate legacy percentage values (0-95) to decimal (0-0.95)
   return {
     name: member.name || '',
     role: member.role || 'Developer',
     allocation: Number.isFinite(parseFloat(member.allocation)) ? parseFloat(member.allocation) : 100,
-    productivityFactor: Math.min(Math.max(productivityFactor, 0), 95),
+    productivityFactor: Math.min(Math.max(productivityFactor, 0), 0.95),
     holidays: Number.isFinite(parseFloat(member.holidays)) ? parseFloat(member.holidays) : 0,
     leaves: Number.isFinite(parseFloat(member.leaves)) ? parseFloat(member.leaves) : 0,
     saturdays: Number.isFinite(parseFloat(member.saturdays)) ? parseFloat(member.saturdays) : 0,
     training: Number.isFinite(parseFloat(member.training)) ? parseFloat(member.training) : 0,
+    misc: Number.isFinite(parseFloat(member.misc)) ? parseFloat(member.misc) : 0,
     dayPlan: member.dayPlan || {}
   };
 }
@@ -1253,7 +1279,8 @@ function addTeamMember() {
   editingMemberIndex = null;
   document.getElementById('member-modal-title').textContent = 'Add Team Member';
   document.getElementById('member-save-btn').textContent = 'Save';
-  document.getElementById('member-productivity').value = 95;
+  document.getElementById('member-productivity').value = 0.95;
+  document.getElementById('member-misc').value = 0;
   document.getElementById('member-training').value = 0;
   document.getElementById('member-modal').classList.add('show');
 }
@@ -1267,7 +1294,8 @@ function editMember(idx) {
   document.getElementById('member-name').value = member.name || '';
   document.getElementById('member-role').value = member.role || 'Developer';
   document.getElementById('member-allocation').value = member.allocation ?? 100;
-  document.getElementById('member-productivity').value = Math.min(member.productivityFactor ?? 95, 95);
+  document.getElementById('member-productivity').value = Math.min(member.productivityFactor ?? 0.95, 0.95);
+  document.getElementById('member-misc').value = member.misc ?? 0;
   document.getElementById('member-training').value = member.training ?? 0;
   document.getElementById('member-modal').classList.add('show');
 }
@@ -1277,7 +1305,8 @@ function closeMemberModal() {
   document.getElementById('member-name').value = '';
   document.getElementById('member-role').value = 'Developer';
   document.getElementById('member-allocation').value = 100;
-  document.getElementById('member-productivity').value = 95;
+  document.getElementById('member-productivity').value = 0.95;
+  document.getElementById('member-misc').value = 0;
   document.getElementById('member-training').value = 0;
   editingMemberIndex = null;
   document.getElementById('member-modal-title').textContent = 'Add Team Member';
@@ -1298,8 +1327,9 @@ function saveTeamMember() {
     name,
     role: document.getElementById('member-role').value,
     allocation: parseFloat(document.getElementById('member-allocation').value),
-    productivityFactor: Math.min(parseFloat(document.getElementById('member-productivity').value), 95),
+    productivityFactor: Math.min(parseFloat(document.getElementById('member-productivity').value), 0.95),
     training: Number.isFinite(parseFloat(document.getElementById('member-training').value)) ? parseFloat(document.getElementById('member-training').value) : 0,
+    misc: Number.isFinite(parseFloat(document.getElementById('member-misc').value)) ? parseFloat(document.getElementById('member-misc').value) : 0,
     holidays: existingMember?.holidays ?? 0,
     leaves: existingMember?.leaves ?? 0,
     saturdays: existingMember?.saturdays ?? 0,
@@ -1320,6 +1350,10 @@ function saveTeamMember() {
 }
 
 function removeMember(idx) {
+  const member = state.members[idx];
+  if (member) {
+    selectedMembers.delete(member.name);
+  }
   state.members.splice(idx, 1);
   saveState();
   renderConfig();
@@ -1342,6 +1376,8 @@ function renderTeamPlanner() {
     return;
   }
 
+  const allSelected = state.members.length > 0 && state.members.every(member => selectedMembers.has(member.name));
+
   container.innerHTML = `
     <div style="padding:16px 18px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; gap:12px; align-items:center;">
       <div>
@@ -1354,7 +1390,12 @@ function renderTeamPlanner() {
       <table>
         <thead>
           <tr>
-            <th style="position: sticky; left: 0; z-index: 2; background: var(--surface2);">Team Member</th>
+            <th style="position: sticky; left: 0; z-index: 2; background: var(--surface2);">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <input type="checkbox" title="Select all" onchange="toggleSelectAllMembers(this.checked)" ${allSelected ? 'checked' : ''}>
+                <span>Team Member</span>
+              </div>
+            </th>
             ${dates.map(date => `<th>${formatScheduleDate(date)}</th>`).join('')}
           </tr>
         </thead>
@@ -1363,10 +1404,13 @@ function renderTeamPlanner() {
             <tr>
               <td style="position: sticky; left: 0; z-index: 1; background: var(--surface); min-width: 180px;">
                 <div style="display:flex; justify-content:space-between; gap:10px; align-items:flex-start;">
-                  <div>
-                    <strong>${member.name}</strong><br>
-                    <span class="text-muted" style="font-size: 11px;">${member.role}</span>
-                    <div class="text-muted" style="font-size: 10px; margin-top: 4px;">PF: ${(member.productivityFactor ?? 100).toFixed(0)}% | Allocation: ${(member.allocation ?? 100).toFixed(0)}%</div>
+                  <div style="display:flex; gap:10px; align-items:flex-start;">
+                    <input type="checkbox" style="margin-top:3px;" onchange='toggleMemberSelection(${JSON.stringify(member.name)}, this.checked)' ${selectedMembers.has(member.name) ? 'checked' : ''}>
+                    <div>
+                      <strong>${member.name}</strong><br>
+                      <span class="text-muted" style="font-size: 11px;">${member.role}</span>
+                      <div class="text-muted" style="font-size: 10px; margin-top: 4px;">PF: ${(member.productivityFactor ?? 0.95).toFixed(2)} | Allocation: ${(member.allocation ?? 100).toFixed(0)}%</div>
+                    </div>
                   </div>
                   <button class="secondary" onclick="editMember(${state.members.indexOf(member)})" style="padding: 4px 8px; font-size: 11px; white-space: nowrap;">Edit</button>
                 </div>
@@ -1413,8 +1457,39 @@ function renderTeamPlanner() {
       <div style="display:flex; gap:10px; flex-wrap:wrap;">
         <button onclick="savePlannerState()">Save Team Planning</button>
         <button class="secondary" onclick="renderTeamPlanner()">Refresh View</button>
+        <button class="danger" onclick="deleteSelectedMembers()" ${selectedMembers.size === 0 ? 'disabled' : ''}>🗑 Delete Selected (${selectedMembers.size})</button>
       </div>
     </div>`;
+}
+
+function toggleMemberSelection(name, checked) {
+  if (checked) {
+    selectedMembers.add(name);
+  } else {
+    selectedMembers.delete(name);
+  }
+  renderTeamPlanner();
+}
+
+function toggleSelectAllMembers(checked) {
+  selectedMembers.clear();
+  if (checked) {
+    state.members.forEach(member => selectedMembers.add(member.name));
+  }
+  renderTeamPlanner();
+}
+
+function deleteSelectedMembers() {
+  if (selectedMembers.size === 0) return;
+  const confirmed = confirm(`Remove ${selectedMembers.size} selected team member(s)? This cannot be undone.`);
+  if (!confirmed) return;
+  state.members = state.members.filter(member => !selectedMembers.has(member.name));
+  selectedMembers.clear();
+  saveState();
+  renderConfig();
+  renderDashboard();
+  renderCapacity();
+  toast('Selected team member(s) removed');
 }
 
 function savePlannerState() {
@@ -1476,44 +1551,29 @@ function setDailyStatus(memberName, dateKey, value, selectEl) {
 
 function getMemberDayTotals(member) {
   const dates = getSprintDates();
-  const productivityFactor = Number.isFinite(parseFloat(member.productivityFactor)) ? parseFloat(member.productivityFactor) : 100;
-  if (dates.length === 0) {
-    const workingDays = state.config.workingDays || 0;
-    const grossAvailableDays = workingDays - (member.holidays || 0) - (member.leaves || 0) - (member.training || 0);
-    const availableDays = grossAvailableDays * (productivityFactor / 100);
-    return {
-      workingDays,
-      holidays: member.holidays || 0,
-      leaves: member.leaves || 0,
-      halfLeaves: 0,
-      productivityFactor,
-      grossAvailableDays,
-      availableDays
-    };
-  }
-
-  let workingDays = 0;
-  let holidays = 0;
-  let leaves = 0;
+  const productivityFactor = Math.min(Math.max(Number.isFinite(parseFloat(member.productivityFactor)) ? parseFloat(member.productivityFactor) : 0.95, 0), 0.95);
+  // Sprint Working Days (state.config.workingDays) is the single source of truth for the
+  // sprint length; the per-day plan only supplies exceptions (holiday/leave/half-leave)
+  // within it, so Available Days can never exceed Sprint Working Days.
+  const workingDays = state.config.workingDays || 0;
+  let holidays = member.holidays || 0;
+  let leaves = member.leaves || 0;
   let halfLeaves = 0;
 
-  dates.forEach(date => {
-    const dateKey = date.toISOString().split('T')[0];
-    const status = getDailyStatus(member, dateKey);
-    const dayOfWeek = date.getDay();
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+  if (dates.length > 0) {
+    holidays = 0;
+    leaves = 0;
+    dates.forEach(date => {
+      const dateKey = date.toISOString().split('T')[0];
+      const status = getDailyStatus(member, dateKey);
+      if (status === 'H') holidays += 1;
+      else if (status === 'L0') leaves += 1;
+      else if (status === 'L0.5') halfLeaves += 0.5;
+    });
+  }
 
-    if (status === 'H') holidays += 1;
-    else if (status === 'L0') leaves += 1;
-    else if (status === 'L0.5') {
-      workingDays += 0.5;
-      halfLeaves += 0.5;
-    }
-    else if (status === 'W') workingDays += 1;
-    else if (!isWeekend) workingDays += 1;
-  });
-
-  const grossAvailableDays = workingDays - holidays - leaves - (member.training || 0);
+  const grossAvailableDays = Math.max(workingDays - holidays - leaves - halfLeaves - (member.training || 0) - (member.misc || 0), 0);
+  const availableDays = Math.min(grossAvailableDays * productivityFactor, workingDays);
 
   return {
     workingDays,
@@ -1522,7 +1582,7 @@ function getMemberDayTotals(member) {
     halfLeaves,
     productivityFactor,
     grossAvailableDays,
-    availableDays: grossAvailableDays * (productivityFactor / 100)
+    availableDays
   };
 }
 
@@ -1609,7 +1669,7 @@ function renderDashboard() {
 // ════════════════════════════════════════════
 function renderCapacity() {
   if (state.members.length === 0) {
-    document.getElementById('capacity-tbody').innerHTML = '<tr><td colspan="10" class="text-center text-muted">No team members configured</td></tr>';
+    document.getElementById('capacity-tbody').innerHTML = '<tr><td colspan="12" class="text-center text-muted">No team members configured</td></tr>';
     document.getElementById('capacity-viz').innerHTML = '<p class="text-muted text-center">Add team members to see capacity visualization</p>';
     renderTeamPlanner();
     return;
@@ -1637,6 +1697,7 @@ function renderCapacity() {
       <td>${member.role}</td>
       <td>${member.allocation}%</td>
       <td>${Number(state.config.workingDays || 0).toFixed(2)}</td>
+      <td>${(member.misc ?? 0).toFixed(2)}</td>
       <td>${(member.training ?? 0).toFixed(2)}</td>
       <td>${totals.holidays.toFixed(2)}</td>
       <td>${(totals.leaves + totals.halfLeaves).toFixed(2)}</td>
@@ -1731,7 +1792,7 @@ function renderReport() {
             <th>Team Member</th>
             <th>Role</th>
             <th>Allocation %</th>
-            <th>PF %</th>
+            <th>PF</th>
             <th>Working Days</th>
             <th>Holidays</th>
             <th>Leaves</th>
@@ -1749,7 +1810,7 @@ function renderReport() {
                 <td><strong>${member.name}</strong></td>
                 <td>${member.role}</td>
                 <td>${(member.allocation ?? 100).toFixed(0)}%</td>
-                <td>${(member.productivityFactor ?? 95).toFixed(0)}%</td>
+                <td>${(member.productivityFactor ?? 0.95).toFixed(2)}</td>
                 <td>${totals.workingDays.toFixed(2)}</td>
                 <td>${totals.holidays.toFixed(2)}</td>
                 <td>${(totals.leaves + totals.halfLeaves).toFixed(2)}</td>
@@ -1790,7 +1851,7 @@ function renderReport() {
 
 function grossProductivityFactor() {
   const grossAvailableHours = state.members.reduce((sum, member) => {
-    const grossDays = Math.max((state.config.workingDays || 0) - (member.holidays || 0) - (member.leaves || 0) - (member.training || 0), 0);
+    const grossDays = Math.max((state.config.workingDays || 0) - (member.holidays || 0) - (member.leaves || 0) - (member.training || 0) - (member.misc || 0), 0);
     return sum + (grossDays * state.config.hoursPerDay * ((member.allocation ?? 100) / 100));
   }, 0);
   const productiveHours = state.members.reduce((sum, member) => {
@@ -1826,12 +1887,16 @@ function exportData() {
     `Product Owner,${encodeURIComponent(state.config.po || '')}`,
     '',
     'TEAM_MEMBERS',
-    'Name,Role,Allocation %,Productivity Factor %,Holidays,Leaves,Saturdays,Training Days'
+    'Name,Role,Allocation %,Productivity Factor,Holidays,Leaves,Saturdays,Training Days,Misc Days'
   ];
 
   state.members.forEach(member => {
+    // Holidays/Leaves must reflect the per-day status grid (same source as the PDF export),
+    // not the raw member.holidays/leaves fields, which stay stale once day statuses are set.
+    const totals = getMemberDayTotals(member);
+    const exportedLeaves = totals.leaves + totals.halfLeaves;
     csvLines.push(
-      `${encodeURIComponent(member.name || '')},${encodeURIComponent(member.role || '')},${member.allocation ?? 100},${member.productivityFactor ?? 100},${member.holidays ?? 0},${member.leaves ?? 0},${member.saturdays ?? 0},${member.training ?? 0}`
+      `${encodeURIComponent(member.name || '')},${encodeURIComponent(member.role || '')},${member.allocation ?? 100},${member.productivityFactor ?? 0.95},${totals.holidays},${exportedLeaves},${member.saturdays ?? 0},${member.training ?? 0},${member.misc ?? 0}`
     );
   });
 
@@ -1917,7 +1982,19 @@ function processImport() {
           else if (key === 'Product Owner') state.config.po = value;
         } else if (section === 'members' && !line.includes('Name,Role')) {
           const parts = line.split(',');
-          if (parts.length >= 8) {
+          if (parts.length >= 9) {
+            state.members.push(normalizeMember({
+              name: decodeURIComponent(parts[0].trim()),
+              role: decodeURIComponent(parts[1].trim()),
+              allocation: parseFloat(parts[2]),
+              productivityFactor: parseFloat(parts[3]),
+              holidays: parseFloat(parts[4]),
+              leaves: parseFloat(parts[5]),
+              saturdays: parseFloat(parts[6]),
+              training: parseFloat(parts[7]),
+              misc: parseFloat(parts[8])
+            }));
+          } else if (parts.length >= 8) {
             state.members.push(normalizeMember({
               name: decodeURIComponent(parts[0].trim()),
               role: decodeURIComponent(parts[1].trim()),
